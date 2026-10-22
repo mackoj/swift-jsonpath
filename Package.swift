@@ -13,7 +13,7 @@ let package = Package(
     products: [
         // JSONPath (RFC 9535 and Jayway dialects), an order-preserving JSON value / parser,
         // Codable bridging, JSON Pointer and mutations. Pure Swift: no Foundation.
-        .library(name: "JSONPath", targets: ["JSONPath"]),
+        .library(name: "JSONPath", targets: ["JSONPath"])
     ],
     targets: [
         .target(

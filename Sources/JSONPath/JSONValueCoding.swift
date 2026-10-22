@@ -147,7 +147,8 @@ private struct KeyedContainer<Key: CodingKey>: KeyedDecodingContainerProtocol {
     func child(_ key: Key) throws -> ValueDecoder {
         guard let value = object[key.stringValue] else {
             throw DecodingError.keyNotFound(
-                key, .init(codingPath: codingPath, debugDescription: "No value associated with key '\(key.stringValue)'."))
+                key,
+                .init(codingPath: codingPath, debugDescription: "No value associated with key '\(key.stringValue)'."))
         }
         return decoder.child(value, key: key)
     }
@@ -174,7 +175,9 @@ private struct KeyedContainer<Key: CodingKey>: KeyedDecodingContainerProtocol {
         return try decoder.child(value, key: key).decode(type)
     }
 
-    func nestedContainer<NestedKey: CodingKey>(keyedBy type: NestedKey.Type, forKey key: Key) throws
+    func nestedContainer<NestedKey: CodingKey>(
+        keyedBy type: NestedKey.Type, forKey key: Key
+    ) throws
         -> KeyedDecodingContainer<NestedKey>
     {
         try child(key).container(keyedBy: type)
@@ -241,7 +244,9 @@ private struct UnkeyedContainer: UnkeyedDecodingContainer {
     mutating func decode(_ type: UInt64.Type) throws -> UInt64 { try next().decodeInteger(type) }
     mutating func decode<T: Decodable>(_ type: T.Type) throws -> T { try next().decode(type) }
 
-    mutating func nestedContainer<NestedKey: CodingKey>(keyedBy type: NestedKey.Type) throws
+    mutating func nestedContainer<NestedKey: CodingKey>(
+        keyedBy type: NestedKey.Type
+    ) throws
         -> KeyedDecodingContainer<NestedKey>
     {
         try next().container(keyedBy: type)
@@ -365,7 +370,8 @@ private struct ValueEncoder: Encoder {
 
     static func number(_ value: Double, at codingPath: [any CodingKey]) throws -> JSONValue {
         guard value.isFinite else {
-            throw EncodingError.invalidValue(value, .init(codingPath: codingPath, debugDescription: "\(value) is not valid JSON."))
+            throw EncodingError.invalidValue(
+                value, .init(codingPath: codingPath, debugDescription: "\(value) is not valid JSON."))
         }
         return .number(value)
     }
@@ -390,8 +396,12 @@ private struct KeyedEncoder<Key: CodingKey>: KeyedEncodingContainerProtocol {
     mutating func encodeNil(forKey key: Key) throws { set(.null, key) }
     mutating func encode(_ value: Bool, forKey key: Key) throws { set(.bool(value), key) }
     mutating func encode(_ value: String, forKey key: Key) throws { set(.string(value), key) }
-    mutating func encode(_ value: Double, forKey key: Key) throws { set(try ValueEncoder.number(value, at: codingPath + [key]), key) }
-    mutating func encode(_ value: Float, forKey key: Key) throws { set(try ValueEncoder.number(Double(value), at: codingPath + [key]), key) }
+    mutating func encode(_ value: Double, forKey key: Key) throws {
+        set(try ValueEncoder.number(value, at: codingPath + [key]), key)
+    }
+    mutating func encode(_ value: Float, forKey key: Key) throws {
+        set(try ValueEncoder.number(Double(value), at: codingPath + [key]), key)
+    }
     mutating func encode(_ value: Int, forKey key: Key) throws { set(.integer(value), key) }
     mutating func encode(_ value: Int8, forKey key: Key) throws { set(ValueEncoder.integer(value), key) }
     mutating func encode(_ value: Int16, forKey key: Key) throws { set(ValueEncoder.integer(value), key) }
@@ -409,7 +419,9 @@ private struct KeyedEncoder<Key: CodingKey>: KeyedEncodingContainerProtocol {
         storage.members[key.stringValue] = node
     }
 
-    mutating func nestedContainer<NestedKey: CodingKey>(keyedBy keyType: NestedKey.Type, forKey key: Key)
+    mutating func nestedContainer<NestedKey: CodingKey>(
+        keyedBy keyType: NestedKey.Type, forKey key: Key
+    )
         -> KeyedEncodingContainer<NestedKey>
     {
         let node = EncodedNode()
@@ -454,7 +466,9 @@ private struct UnkeyedEncoder: UnkeyedEncodingContainer {
     mutating func encode(_ value: Bool) throws { append(.bool(value)) }
     mutating func encode(_ value: String) throws { append(.string(value)) }
     mutating func encode(_ value: Double) throws { append(try ValueEncoder.number(value, at: codingPath + [nextKey])) }
-    mutating func encode(_ value: Float) throws { append(try ValueEncoder.number(Double(value), at: codingPath + [nextKey])) }
+    mutating func encode(_ value: Float) throws {
+        append(try ValueEncoder.number(Double(value), at: codingPath + [nextKey]))
+    }
     mutating func encode(_ value: Int) throws { append(.integer(value)) }
     mutating func encode(_ value: Int8) throws { append(ValueEncoder.integer(value)) }
     mutating func encode(_ value: Int16) throws { append(ValueEncoder.integer(value)) }
@@ -473,7 +487,9 @@ private struct UnkeyedEncoder: UnkeyedEncodingContainer {
         try encoder.child(node, key: key).encode(value)
     }
 
-    mutating func nestedContainer<NestedKey: CodingKey>(keyedBy keyType: NestedKey.Type) -> KeyedEncodingContainer<NestedKey> {
+    mutating func nestedContainer<NestedKey: CodingKey>(
+        keyedBy keyType: NestedKey.Type
+    ) -> KeyedEncodingContainer<NestedKey> {
         let node = EncodedNode()
         let key = nextKey
         storage.elements.append(node)
