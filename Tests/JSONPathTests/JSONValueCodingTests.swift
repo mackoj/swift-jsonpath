@@ -16,13 +16,18 @@ struct JSONValueCodingTests {
     @Test func roundTripsCodableTypes() throws {
         let book = Book(title: "Moby Dick", kind: .fiction, price: 8.99, pages: nil, tags: ["sea"], ratings: ["a": 5])
         let value = try JSONValue(encoding: book)
-        #expect(value == ["title": "Moby Dick", "kind": "fiction", "price": 8.99, "tags": ["sea"], "ratings": ["a": 5]])
+        #expect(
+            value == ["title": "Moby Dick", "kind": "fiction", "price": 8.99, "tags": ["sea"], "ratings": ["a": 5]])
         #expect(try value.decode(as: Book.self) == book)
     }
 
     @Test func decodesQueryResults() throws {
-        let document = try JSONValue(parsing: #"{"books": [{"title": "A", "kind": "reference", "price": 1, "tags": [], "ratings": {}}, {"title": "B", "kind": "fiction", "price": 2.5, "pages": 300, "tags": ["x"], "ratings": {"z": 1}}]}"#)
-        let books = try JSONValueDecoder().decode(Book.self, from: JSONPath("$.books[?@.price > 2]").values(in: document))
+        let document = try JSONValue(
+            parsing:
+                #"{"books": [{"title": "A", "kind": "reference", "price": 1, "tags": [], "ratings": {}}, {"title": "B", "kind": "fiction", "price": 2.5, "pages": 300, "tags": ["x"], "ratings": {"z": 1}}]}"#
+        )
+        let books = try JSONValueDecoder().decode(
+            Book.self, from: JSONPath("$.books[?@.price > 2]").values(in: document))
         #expect(books.map(\.title) == ["B"])
         #expect(books[0].pages == 300)
     }
@@ -58,7 +63,9 @@ struct JSONValueCodingTests {
 
     @Test func prettyPrinting() throws {
         let value: JSONValue = ["b": [1, ["c": true]], "a": [:], "e": []]
-        #expect(value.jsonString(prettyPrinted: true) == "{\n  \"b\": [\n    1,\n    {\n      \"c\": true\n    }\n  ],\n  \"a\": {},\n  \"e\": []\n}")
+        #expect(
+            value.jsonString(prettyPrinted: true)
+                == "{\n  \"b\": [\n    1,\n    {\n      \"c\": true\n    }\n  ],\n  \"a\": {},\n  \"e\": []\n}")
         #expect(value.jsonString(prettyPrinted: false, sortedKeys: true) == #"{"a":{},"b":[1,{"c":true}],"e":[]}"#)
         #expect(try JSONValue(parsing: value.jsonString(prettyPrinted: true)) == value)
     }
