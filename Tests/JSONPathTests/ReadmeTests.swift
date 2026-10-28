@@ -82,4 +82,12 @@ struct ReadmeTests {
             Issue.record("\(error)")
         }
     }
+
+    @Test func syntaxColouring() {
+        let query = "$[?@.price < 10].title"
+        let tokens = JSONPath.tokens(in: query)
+        #expect(
+            tokens.map { String(query[$0.range]) } == ["$", "[", "?", "@", ".", "price", "<", "10", "]", ".", "title"])
+        #expect(tokens.prefix(4).map(\.kind) == [.root, .bracket, .punctuation, .current])
+    }
 }
