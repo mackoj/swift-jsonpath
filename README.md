@@ -1,6 +1,8 @@
 # swift-jsonpath
 
 [![CI](https://github.com/mackoj/swift-jsonpath/actions/workflows/ci.yml/badge.svg)](https://github.com/mackoj/swift-jsonpath/actions/workflows/ci.yml)
+[![](https://img.shields.io/endpoint?url=https%3A%2F%2Fswiftpackageindex.com%2Fapi%2Fpackages%2Fmackoj%2Fswift-jsonpath%2Fbadge%3Ftype%3Dswift-versions)](https://swiftpackageindex.com/mackoj/swift-jsonpath)
+[![](https://img.shields.io/endpoint?url=https%3A%2F%2Fswiftpackageindex.com%2Fapi%2Fpackages%2Fmackoj%2Fswift-jsonpath%2Fbadge%3Ftype%3Dplatforms)](https://swiftpackageindex.com/mackoj/swift-jsonpath)
 
 A complete JSONPath implementation in pure Swift — no Foundation, no dependencies — supporting both
 the IETF standard and the widely deployed Jayway dialect.
