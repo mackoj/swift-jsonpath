@@ -15,6 +15,7 @@ the IETF standard and the widely deployed Jayway dialect.
   (`.length()`, `.avg()`, `.concat()`, …). Passes Sextant's **complete test suite**, ported to
   swift-testing, and agrees with Sextant on every input of a differential run except where Sextant
   is buggy.
+- Token ranges for **syntax colouring**, in both dialects.
 - Normalized paths, and **mutations** driven by paths: replace, remove, map, set by JSON Pointer.
 - `JSONValue`: an order-preserving JSON model with a strict RFC 8259 **parser**, a pretty printer
   and an order-preserving **Codable** bridge (`JSONValueDecoder` / `JSONValueEncoder`).
@@ -110,6 +111,21 @@ do {
 
 `JSONPath.EvaluationError` is thrown for valid paths that fail at evaluation time, such as a Jayway
 `avg()` over an empty array.
+
+### Syntax colouring
+
+`JSONPath.tokens(in:dialect:)` splits an expression into runs (root, names, strings, numbers,
+operators, function names, brackets, …) with their ranges in the text, for an editor to colour.
+It follows the dialect's lexical rules but never rejects text: what it doesn't recognise is a
+`.plain` run, so it works on an expression that is still being typed. Validity still comes from
+`JSONPath(_:dialect:)`.
+
+```swift
+let query = "$[?@.price < 10].title"
+for token in JSONPath.tokens(in: query) {
+    print(token.kind, query[token.range])    // root $, bracket [, punctuation ?, current @, …
+}
+```
 
 ## Tests
 
