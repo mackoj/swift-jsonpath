@@ -5,7 +5,7 @@
 [![](https://img.shields.io/endpoint?url=https%3A%2F%2Fswiftpackageindex.com%2Fapi%2Fpackages%2Fmackoj%2Fswift-jsonpath%2Fbadge%3Ftype%3Dplatforms)](https://swiftpackageindex.com/mackoj/swift-jsonpath)
 
 A complete JSONPath implementation in pure Swift — no Foundation, no dependencies — supporting both
-the IETF standard and the widely deployed Jayway dialect.
+the IETF standard and the widely deployed Jayway dialect, with JSON Pointer (RFC 6901) alongside it.
 
 - **RFC 9535** ([JSONPath: Query Expressions for JSON](https://www.rfc-editor.org/rfc/rfc9535)):
   strict grammar, well-typedness checks, the `length` `count` `match` `search` `value` functions with
@@ -17,6 +17,9 @@ the IETF standard and the widely deployed Jayway dialect.
   (`.length()`, `.avg()`, `.concat()`, …). Passes Sextant's **complete test suite**, ported to
   swift-testing, and agrees with Sextant on every input of a differential run except where Sextant
   is buggy.
+- **RFC 6901** ([JSON Pointer](https://www.rfc-editor.org/rfc/rfc6901)): `JSONPointer` parses,
+  escapes (`~0`, `~1`) and resolves pointers, accepts the URI fragment form (`#/a/b`), converts from
+  a query's normalized paths, and sets values, appending to an array with `-`.
 - Token ranges for **syntax colouring**, in both dialects.
 - Normalized paths, and **mutations** driven by paths: replace, remove, map, set by JSON Pointer.
 - `JSONValue`: an order-preserving JSON model with a strict RFC 8259 **parser**, a pretty printer
@@ -78,6 +81,33 @@ let inList  = try JSONPath("$.store.book[?(@.category in ['fiction'])]", dialect
 | Implicit root (`store.book`) | – | ✓ |
 | Slice step `0` | selects nothing | treated as `1` |
 | Relation on a missing path | false | error (the filter fails) |
+
+### JSON Pointer
+
+`JSONPointer` implements [RFC 6901](https://www.rfc-editor.org/rfc/rfc6901): it addresses one value
+by its location, where a JSONPath query selects any number of values.
+
+```swift
+let title = try JSONPointer("/store/book/0/title")
+title.resolve(in: document)                     // "Sayings of the Century"
+title.tokens                                    // ["store", "book", "0", "title"]
+try JSONPointer("#/store/bicycle")              // the URI fragment form is accepted
+try JSONPointer("/a~1b/m~0n").tokens            // ["a/b", "m~n"]: `~1` is "/", `~0` is "~"
+JSONPointer(tokens: ["a/b", "m~n"]).description // "/a~1b/m~0n"
+try JSONPointer("/store/missing").resolve(in: document)  // nil
+
+// From a query's results to pointers
+try JSONPath("$..price").paths(in: document).map(\.jsonPointer.description)
+// ["/store/book/0/price", "/store/book/1/price", "/store/book/2/price", "/store/bicycle/price"]
+
+// Setting a value: missing object members are created, and `-` appends to an array
+var copy = document
+try copy.set("red", at: JSONPointer("/store/bicycle/color"))
+try copy.set(["title": "Dune", "price": 9.99], at: JSONPointer("/store/book/-"))
+```
+
+`JSONPointer("store")` throws a `JSONPointer.ParseError`: a non-empty pointer starts with `/`.
+`JSONPointer` is `Codable` as its string form.
 
 ### Mutations
 
