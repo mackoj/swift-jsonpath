@@ -42,6 +42,26 @@ struct ReadmeTests {
         #expect(try inList.values(in: document).count == 2)
     }
 
+    @Test func jsonPointer() throws {
+        let document = Self.document
+        let title = try JSONPointer("/store/book/0/title")
+        #expect(title.resolve(in: document) == "Sayings of the Century")
+        #expect(title.tokens == ["store", "book", "0", "title"])
+        #expect(try JSONPointer("#/store/bicycle").resolve(in: document)?["color"] == "red")
+        #expect(try JSONPointer("/a~1b/m~0n").tokens == ["a/b", "m~n"])
+        #expect(JSONPointer(tokens: ["a/b", "m~n"]).description == "/a~1b/m~0n")
+        #expect(try JSONPointer("/store/missing").resolve(in: document) == nil)
+        #expect(
+            try JSONPath("$..price").paths(in: document).map(\.jsonPointer.description) == [
+                "/store/book/0/price", "/store/book/1/price", "/store/book/2/price", "/store/bicycle/price",
+            ])
+        var copy = document
+        try copy.set("red", at: JSONPointer("/store/bicycle/color"))
+        try copy.set(["title": "Dune", "price": 9.99], at: JSONPointer("/store/book/-"))
+        #expect(copy["store"]?["book"]?[3] == ["title": "Dune", "price": 9.99])
+        #expect(throws: JSONPointer.ParseError.self) { try JSONPointer("store") }
+    }
+
     @Test func mutations() throws {
         var copy = Self.document
         try copy.replace(JSONPath("$..price"), with: 0)
