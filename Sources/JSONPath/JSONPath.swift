@@ -32,6 +32,23 @@ public struct JSONPath: Hashable, Sendable, CustomStringConvertible {
         }
     }
 
+    /// Compiles a JSONPath expression in whichever Dialect parses it, for text whose author didn't say which.
+    ///
+    /// ``Dialect/rfc9535`` wins whenever it parses the expression, even when ``Dialect/jayway`` would too and would
+    /// select differently (Jayway's loose `==`, filters on objects); ``Dialect/jayway`` is tried only when RFC 9535
+    /// rejects the text, as it does Jayway's path functions, operators and implicit root. ``dialect`` tells which
+    /// one won. The choice is made at parse time: a path that parses in RFC 9535 and selects nothing stays RFC 9535.
+    ///
+    /// - Throws: The RFC 9535 ``ParseError`` when neither Dialect parses the expression.
+    public init(anyDialect expression: String) throws {
+        do {
+            try self.init(expression, dialect: .rfc9535)
+        } catch let rfcError {
+            guard let path = try? JSONPath(expression, dialect: .jayway) else { throw rfcError }
+            self = path
+        }
+    }
+
     /// Returns a description of why `expression` is invalid, or `nil` if it is valid.
     public static func validate(_ expression: String, dialect: Dialect = .rfc9535) -> String? {
         do {

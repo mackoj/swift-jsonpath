@@ -127,6 +127,58 @@ struct JSONPathAPITests {
     }
 }
 
+@Suite("Any Dialect")
+struct AnyDialectTests {
+    @Test func anRFCOnlyPathIsRFC9535() throws {
+        // Given a union with a wildcard, which only RFC 9535 parses
+        #expect(JSONPath.validate("$[*, 0]", dialect: .jayway) != nil)
+
+        // When
+        let path = try JSONPath(anyDialect: "$[*, 0]")
+
+        // Then
+        #expect(path.dialect == .rfc9535)
+        #expect(try path.values(in: [1, 2]) == [1, 2, 1])
+    }
+
+    @Test func aJaywayOnlyPathIsJayway() throws {
+        // Given a Jayway path function, which RFC 9535 rejects
+        #expect(JSONPath.validate("$.numbers.length()") != nil)
+
+        // When
+        let path = try JSONPath(anyDialect: "$.numbers.length()")
+
+        // Then
+        #expect(path.dialect == .jayway)
+        #expect(try path.values(in: ["numbers": [1, 2, 3]]) == [3])
+    }
+
+    @Test func aPathValidInBothDialectsIsRFC9535() throws {
+        // Given a comparison both Dialects parse, where Jayway's loose equality selects more
+        let list: JSONValue = [["v": "1"], ["v": 1]]
+
+        // When
+        let path = try JSONPath(anyDialect: "$[?@.v == 1]")
+
+        // Then
+        #expect(path.dialect == .rfc9535)
+        #expect(try path.values(in: list) == [["v": 1]])
+    }
+
+    @Test func aPathInvalidInBothDialectsThrowsTheRFC9535Error() {
+        // Given a path neither Dialect parses, each with its own message
+        let rfcError = JSONPath.ParseError(message: "Unexpected end of query", position: 4)
+        #expect(JSONPath.validate("$.a[") == rfcError.message)
+        let jaywayMessage = JSONPath.validate("$.a[", dialect: .jayway)
+        #expect(jaywayMessage != nil && jaywayMessage != rfcError.message)
+
+        // When / Then
+        #expect(throws: rfcError) {
+            try JSONPath(anyDialect: "$.a[")
+        }
+    }
+}
+
 @Suite("Mutations")
 struct MutationTests {
     @Test func setAtPointer() throws {
