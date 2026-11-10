@@ -11,6 +11,8 @@
 /// - ``Dialect/rfc9535`` – the IETF standard ([RFC 9535](https://www.rfc-editor.org/rfc/rfc9535)), the default.
 /// - ``Dialect/jayway`` – the widely deployed Jayway JsonPath dialect (also implemented by
 ///   SMJJSONPath and Sextant), with `[?(...)]` filters, extra operators and path functions.
+///
+/// ``init(anyDialect:)`` picks the dialect for text that doesn't say: RFC 9535 when it parses, Jayway otherwise.
 public struct JSONPath: Hashable, Sendable, CustomStringConvertible {
     public enum Dialect: String, Hashable, Sendable, CaseIterable {
         case rfc9535
