@@ -81,7 +81,7 @@ nav .wrap { display: flex; align-items: center; gap: 24px; height: 60px; }
 nav .links { display: flex; gap: 22px; margin-left: auto; font-size: 15px; }
 nav .links a { color: var(--muted); text-decoration: none; }
 nav .links a:hover { color: var(--text); }
-@media (max-width: 760px) { nav .links a:not(.gh) { display: none; } }
+@media (max-width: 880px) { nav .links a:not(.gh) { display: none; } }
 
 /* Hero */
 .hero { position: relative; overflow: hidden; padding: 96px 0 88px; }
@@ -127,6 +127,16 @@ nav .links a:hover { color: var(--text); }
 .query .result { font: 13.5px/1.5 ui-monospace, "SF Mono", Menlo, monospace; overflow-wrap: anywhere; }
 .query p { color: var(--muted); font-size: 15px; margin: 12px 0 0; }
 .note { color: var(--muted); font-size: 15px; margin-top: 18px; }
+
+/* JSON Pointer */
+.pointer { display: grid; gap: 24px; margin-top: 40px; }
+.pointer > * { min-width: 0; }
+.pointer ul { margin: 0; padding-left: 20px; color: var(--muted); columns: 2; column-gap: 48px; }
+@media (max-width: 860px) { .pointer ul { columns: 1; } }
+.pointer li { margin: 0 0 12px; break-inside: avoid; }
+.pointer li strong { color: var(--text); }
+.compare td:first-child { color: var(--muted); font-weight: 600; white-space: nowrap; }
+.compare td code { white-space: nowrap; }
 
 /* Features */
 .features { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; margin-top: 44px; }
@@ -194,6 +204,7 @@ footer a { color: var(--muted); }
     </a>
     <div class="links">
       <a href="#jsonpath">What is JSONPath</a>
+      <a href="#pointer">JSON Pointer</a>
       <a href="#features">Features</a>
       <a href="#dialects">Dialects</a>
       <a href="#tour">Code tour</a>
@@ -278,6 +289,70 @@ try copy.replace(JSONPath("$..price"), with: 0)</code></pre>
       </div>
     </div>
     <p class="note">Each result comes with its location as a normalized path (<code>$['store']['book'][0]['title']</code>) or a JSON Pointer (<code>/store/book/0/title</code>), so you can go back and change it.</p>
+  </div>
+</section>
+
+<section id="pointer">
+  <div class="wrap">
+    <p class="eyebrow">JSON Pointer</p>
+    <h2>JSONPath finds values.<br>JSON Pointer says exactly where one is.</h2>
+    <p class="lead"><a href="https://www.rfc-editor.org/rfc/rfc6901">RFC 6901</a> is the addressing format the JSON ecosystem already speaks: <code>$ref</code> in JSON Schema and OpenAPI, <code>path</code> in JSON Patch, the locations validators report errors at. A pointer names one location, token by token, so resolving it is a walk down the document, never a search.</p>
+    <div class="queries" aria-label="JSON Pointer examples">
+      <div class="query">
+        <span class="dialect">Tokens</span>
+        <div class="path">/store/book/0/title</div>
+        <span class="arrow">resolves to</span>
+        <div class="result">"Sayings of the Century"</div>
+        <p>Each token is a member name, or an index when the value is an array.</p>
+      </div>
+      <div class="query">
+        <span class="dialect">Escaping</span>
+        <div class="path">/a~1b/m~0n</div>
+        <span class="arrow">has the tokens</span>
+        <div class="result">["a/b", "m~n"]</div>
+        <p><code>~1</code> stands for <code>/</code> and <code>~0</code> for <code>~</code>. Build a pointer from tokens and it escapes them for you.</p>
+      </div>
+      <div class="query">
+        <span class="dialect">Fragment</span>
+        <div class="path">#/store/bicycle</div>
+        <span class="arrow">is the same as</span>
+        <div class="result">/store/bicycle</div>
+        <p>The URI fragment form, as written after the <code>#</code> of a <code>$ref</code>, is accepted.</p>
+      </div>
+    </div>
+
+    <div class="table-scroll">
+      <table class="compare">
+        <thead><tr><th></th><th>JSONPath</th><th>JSON Pointer</th></tr></thead>
+        <tbody>
+          <tr><td>Selects</td><td>any number of nodes, from a search</td><td>exactly one location, or nothing</td></tr>
+          <tr><td>Looks like</td><td><code>$..book[?@.price &lt; 10]</code></td><td><code>/store/book/0/price</code></td></tr>
+          <tr><td>Standard</td><td>RFC 9535 (and the Jayway dialect)</td><td>RFC 6901</td></tr>
+          <tr><td>Use it to</td><td>query, filter and extract</td><td>store, report, reference and patch a location</td></tr>
+          <tr><td>In swift-jsonpath</td><td><code>JSONPath</code>, <code>NormalizedPath</code></td><td><code>JSONPointer</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="pointer">
+      <ul>
+        <li><strong>From a query to pointers.</strong> Every node a query returns carries its normalized path, and <code>.jsonPointer</code> turns it into a pointer: search once, then store, report or patch each match by its pointer.</li>
+        <li><strong>Set by pointer.</strong> <code>set(_:at:)</code> creates a missing object member and appends to an array with <code>-</code>, like JSON Patch's <code>add</code>. A missing parent or an index past the end throws a <code>MutationError</code> instead of guessing.</li>
+        <li><strong>Strict where the RFC is.</strong> <code>~</code> must be followed by <code>0</code> or <code>1</code>, and a non-empty pointer starts with <code>/</code>: anything else throws a <code>JSONPointer.ParseError</code>. An array index with leading zeros never matches.</li>
+        <li><strong>A value you can keep.</strong> <code>JSONPointer</code> is <code>Hashable</code>, <code>Sendable</code> and <code>Codable</code> as its string form, so a field like <code>let location: JSONPointer</code> fits in your own models.</li>
+      </ul>
+      <div class="code">
+        <div class="bar"><i></i><i></i><i></i><span>Pointers.swift</span></div>
+        <pre><code class="swift" data-readme>// From a query's results to pointers
+try JSONPath(&quot;$..price&quot;).paths(in: document).map(\.jsonPointer.description)
+// [&quot;/store/book/0/price&quot;, &quot;/store/book/1/price&quot;, &quot;/store/book/2/price&quot;, &quot;/store/bicycle/price&quot;]
+
+// Setting a value: missing object members are created, and `-` appends to an array
+var copy = document
+try copy.set(&quot;red&quot;, at: JSONPointer(&quot;/store/bicycle/color&quot;))
+try copy.set([&quot;title&quot;: &quot;Dune&quot;, &quot;price&quot;: 9.99], at: JSONPointer(&quot;/store/book/-&quot;))</code></pre>
+      </div>
+    </div>
   </div>
 </section>
 

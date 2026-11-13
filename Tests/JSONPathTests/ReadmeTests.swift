@@ -35,7 +35,7 @@ struct ReadmeTests {
         }
 
         // Then there are blocks, and each of their lines is in the README
-        #expect(blocks.count == 9)
+        #expect(blocks.count == 10)
         #expect(strayLines == [])
     }
 
