@@ -183,6 +183,9 @@ swift test
   Sextant-only APIs (tuples, `Decodable` coercion, in-place `JsonElement` mutation, internal compiler
   types) are adapted to the equivalent `JSONValue` / `JSONPath` APIs, and every adaptation is
   commented where it happens.
+- `swift test --package-path Architecture` (macOS) checks the [architecture rules](docs/architecture-rules.md):
+  the mechanical part of `CODING_STANDARDS.md` and `CONSTRAINTS.md`, written with
+  [swift-llm-check](https://github.com/mackoj/swift-llm-check). CI runs them on macOS.
 - Set `SEXTANT_ORACLE_LOG=/path/to/file.jsonl` to record every (document, path) pair the Sextant
   tests evaluate, for differential testing against Sextant itself.
 
