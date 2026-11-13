@@ -116,7 +116,7 @@ enum JaywayFunctions {
         case .function(let call):
             guard
                 let value = try RFC9535Functions.evaluateValue(
-                    call, current: input, root: evaluator.root, jayway: evaluator)
+                    call, current: input, root: evaluator.root, jayway: evaluator, regexes: evaluator.regexes)
             else { throw JSONPath.EvaluationError("Function argument did not resolve") }
             return value
         case .logical:

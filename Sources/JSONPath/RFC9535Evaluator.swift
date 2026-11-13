@@ -1,11 +1,14 @@
 /// Evaluates queries with RFC 9535 semantics.
 struct RFC9535Evaluator {
     let root: JSONValue
+    var regexes = RegexCache()
 
     typealias Node = JSONPath.Node
 
-    func evaluate(_ query: JSONPath.Query, current: JSONValue) throws -> [Node] {
-        var nodes = [Node(location: .root, value: query.root == .root ? root : current)]
+    /// The selected nodes. Without `tracksLocations` every location is `nil`: building them costs an allocation per
+    /// visited node, and filters, functions and ``JSONPath/values(in:)`` read values only.
+    func evaluate(_ query: JSONPath.Query, current: JSONValue, tracksLocations: Bool = false) throws -> [Node] {
+        var nodes = [Node(location: tracksLocations ? .root : nil, value: query.root == .root ? root : current)]
         for segment in query.segments {
             var next: [Node] = []
             switch segment {
@@ -118,7 +121,9 @@ struct RFC9535Evaluator {
             let exists = !((try? evaluate(query, current: current)) ?? []).isEmpty
             return exists != negated
         case .function(let call):
-            return (try? RFC9535Functions.evaluateLogical(call, current: current, root: root, jayway: nil)) ?? false
+            return
+                (try? RFC9535Functions.evaluateLogical(
+                    call, current: current, root: root, jayway: nil, regexes: regexes)) ?? false
         case .comparison(let lhs, let op, let rhs):
             return Self.compare(value(lhs, current: current), op, value(rhs, current: current))
         }
@@ -132,7 +137,9 @@ struct RFC9535Evaluator {
             guard let nodes = try? evaluate(query, current: current), nodes.count == 1 else { return nil }
             return nodes[0].value
         case .function(let call):
-            return (try? RFC9535Functions.evaluateValue(call, current: current, root: root, jayway: nil)) ?? nil
+            return
+                (try? RFC9535Functions.evaluateValue(call, current: current, root: root, jayway: nil, regexes: regexes))
+                ?? nil
         case .regex: return nil
         }
     }
@@ -252,9 +259,10 @@ enum RFC9535Functions {
     }
 
     static func arguments(
-        _ call: JSONPath.FunctionCall, current: JSONValue, root: JSONValue, jayway: JaywayEvaluator?
+        _ call: JSONPath.FunctionCall, current: JSONValue, root: JSONValue, jayway: JaywayEvaluator?,
+        regexes: RegexCache
     ) throws -> [Argument] {
-        let rfc = RFC9535Evaluator(root: root)
+        let rfc = RFC9535Evaluator(root: root, regexes: regexes)
         let parameters = signatures[call.name]?.parameters ?? []
         return try call.arguments.enumerated().map { index, argument in
             let parameter = index < parameters.count ? parameters[index] : .value
@@ -275,9 +283,10 @@ enum RFC9535Functions {
                 }
             case .function(let inner):
                 if resultType(of: inner) == .logical {
-                    return .logical(try evaluateLogical(inner, current: current, root: root, jayway: jayway))
+                    return .logical(
+                        try evaluateLogical(inner, current: current, root: root, jayway: jayway, regexes: regexes))
                 }
-                return .value(try evaluateValue(inner, current: current, root: root, jayway: jayway))
+                return .value(try evaluateValue(inner, current: current, root: root, jayway: jayway, regexes: regexes))
             case .logical(let expression):
                 if let jayway { return .logical(jayway.accept(expression, current: current)) }
                 return .logical(rfc.test(expression, current: current))
@@ -287,9 +296,10 @@ enum RFC9535Functions {
 
     /// Evaluates a ValueType function (`length`, `count`, `value`). `nil` is "Nothing".
     static func evaluateValue(
-        _ call: JSONPath.FunctionCall, current: JSONValue, root: JSONValue, jayway: JaywayEvaluator?
+        _ call: JSONPath.FunctionCall, current: JSONValue, root: JSONValue, jayway: JaywayEvaluator?,
+        regexes: RegexCache
     ) throws -> JSONValue? {
-        let args = try arguments(call, current: current, root: root, jayway: jayway)
+        let args = try arguments(call, current: current, root: root, jayway: jayway, regexes: regexes)
         switch call.name {
         case "length":
             guard case .value(let value?) = args.first else { return nil }
@@ -312,14 +322,15 @@ enum RFC9535Functions {
 
     /// Evaluates a LogicalType function (`match`, `search`).
     static func evaluateLogical(
-        _ call: JSONPath.FunctionCall, current: JSONValue, root: JSONValue, jayway: JaywayEvaluator?
+        _ call: JSONPath.FunctionCall, current: JSONValue, root: JSONValue, jayway: JaywayEvaluator?,
+        regexes: RegexCache
     ) throws -> Bool {
-        let args = try arguments(call, current: current, root: root, jayway: jayway)
+        let args = try arguments(call, current: current, root: root, jayway: jayway, regexes: regexes)
         switch call.name {
         case "match", "search":
             guard args.count == 2, case .value(.string(let subject)?) = args[0],
                 case .value(.string(let pattern)?) = args[1],
-                let regex = IRegexp.compile(pattern)
+                let regex = regexes.regex("i-regexp:" + pattern, compile: { IRegexp.compile(pattern) })
             else { return false }
             let target = subject
             if call.name == "match" {
@@ -328,7 +339,7 @@ enum RFC9535Functions {
             return (try? regex.firstMatch(in: target)) != nil
         default:
             // NodesType results convert to LogicalType: non-empty means true.
-            if let value = try evaluateValue(call, current: current, root: root, jayway: jayway) {
+            if let value = try evaluateValue(call, current: current, root: root, jayway: jayway, regexes: regexes) {
                 return value.boolValue ?? true
             }
             return false

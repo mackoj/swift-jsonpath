@@ -165,7 +165,7 @@ extension JSONValue: CustomStringConvertible {
         return output
     }
 
-    private func write(to output: inout String) {
+    func write(to output: inout String) {
         switch self {
         case .null: output += "null"
         case .bool(let v): output += v ? "true" : "false"
@@ -198,23 +198,31 @@ extension JSONValue: CustomStringConvertible {
         }
     }
 
-    private static func writeString(_ string: String, to output: inout String) {
+    /// Only ASCII bytes are ever escaped, so the runs between them, multibyte UTF-8 included, are copied whole.
+    static func writeString(_ string: String, to output: inout String) {
         output += "\""
-        for scalar in string.unicodeScalars {
-            switch scalar {
-            case "\"": output += "\\\""
-            case "\\": output += "\\\\"
-            case "\n": output += "\\n"
-            case "\r": output += "\\r"
-            case "\t": output += "\\t"
-            case "\u{08}": output += "\\b"
-            case "\u{0C}": output += "\\f"
-            case let s where s.value < 0x20:
-                let hex = String(s.value, radix: 16)
-                output += "\\u" + String(repeating: "0", count: 4 - hex.count) + hex
-            default: output.unicodeScalars.append(scalar)
+        let utf8 = string.utf8
+        var runStart = utf8.startIndex
+        for (index, byte) in zip(utf8.indices, utf8) {
+            let escape: String
+            switch byte {
+            case UInt8(ascii: "\""): escape = "\\\""
+            case UInt8(ascii: "\\"): escape = "\\\\"
+            case 0x0A: escape = "\\n"
+            case 0x0D: escape = "\\r"
+            case 0x09: escape = "\\t"
+            case 0x08: escape = "\\b"
+            case 0x0C: escape = "\\f"
+            case let byte where byte < 0x20:
+                let hex = String(byte, radix: 16)
+                escape = "\\u" + String(repeating: "0", count: 4 - hex.count) + hex
+            default: continue
             }
+            output += string[runStart..<index]
+            output += escape
+            runStart = utf8.index(after: index)
         }
+        output += string[runStart...]
         output += "\""
     }
 }

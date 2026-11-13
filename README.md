@@ -189,6 +189,24 @@ swift test
 - Set `SEXTANT_ORACLE_LOG=/path/to/file.jsonl` to record every (document, path) pair the Sextant
   tests evaluate, for differential testing against Sextant itself.
 
+## Benchmarks
+
+Benchmarks live in `Benchmarks/`, a separate package on
+[package-benchmark](https://github.com/ordo-one/package-benchmark) (see
+[Swift.org's introduction](https://www.swift.org/blog/benchmarks/)), so the library never depends on it. They parse and
+print JSON, parse paths in both Dialects, run queries on a generated 1.4 MB document and on the compliance suite,
+resolve JSON Pointers, mutate, and decode and encode with Codable, measuring wall clock, CPU, allocations, retains and
+peak memory. They need macOS 15 and jemalloc (`brew install jemalloc`).
+
+```sh
+swift package --package-path Benchmarks benchmark
+# Compare a change against main:
+git switch main && swift package --package-path Benchmarks --allow-writing-to-package-directory benchmark baseline update main
+git switch - && swift package --package-path Benchmarks benchmark baseline compare main
+# Profile one benchmark with Instruments' Time Profiler and print its hottest functions:
+Benchmarks/scripts/profile.sh 'Query RFC 9535, descendants, large'
+```
+
 ## License
 
 MIT. See [LICENSE](LICENSE). Test fixtures keep their own licenses, as noted above.

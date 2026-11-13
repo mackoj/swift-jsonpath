@@ -173,48 +173,65 @@ struct JSONTextParser {
             guard index < bytes.count, isDigit(bytes[index]) else { throw fail("invalid exponent") }
             while index < bytes.count, isDigit(bytes[index]) { index += 1 }
         }
+        if isInteger, let int = integer(start..<index) { return .integer(int) }
         let text = String(decoding: UnsafeBufferPointer(rebasing: bytes[start..<index]), as: UTF8.self)
-        if isInteger, let int = Int(text) { return .integer(int) }
         guard let double = Double(text) else { throw fail("invalid number") }
         return .number(double)
     }
 
+    /// The integer in `range`, an optional `-` and digits, or `nil` when it does not fit in `Int`. Read from the
+    /// bytes, without making a `String` first; a negative number is built downward so `Int.min` fits.
+    func integer(_ range: Range<Int>) -> Int? {
+        let negative = bytes[range.lowerBound] == UInt8(ascii: "-")
+        var value = 0
+        for index in (negative ? range.lowerBound + 1 : range.lowerBound)..<range.upperBound {
+            let digit = Int(bytes[index] &- UInt8(ascii: "0"))
+            let (shifted, overflowed) = value.multipliedReportingOverflow(by: 10)
+            let (next, overflowedAgain) =
+                negative ? shifted.subtractingReportingOverflow(digit) : shifted.addingReportingOverflow(digit)
+            if overflowed || overflowedAgain { return nil }
+            value = next
+        }
+        return value
+    }
+
     func isDigit(_ byte: UInt8) -> Bool { byte >= UInt8(ascii: "0") && byte <= UInt8(ascii: "9") }
 
+    /// A string without escapes is decoded once from its bytes. With escapes, the unescaped UTF-8 is gathered in
+    /// a buffer and decoded once, rather than appended scalar by scalar.
     mutating func parseString() throws -> String {
         index += 1  // opening quote
-        var scalars = String.UnicodeScalarView()
+        var hasEscapes = false
+        var unescaped: [UInt8] = []
         var runStart = index
-        func flushRun(_ end: Int, into scalars: inout String.UnicodeScalarView) {
-            if end > runStart {
-                scalars.append(
-                    contentsOf: String(decoding: UnsafeBufferPointer(rebasing: bytes[runStart..<end]), as: UTF8.self)
-                        .unicodeScalars)
-            }
+        func flushRun(_ end: Int) {
+            unescaped.append(contentsOf: UnsafeBufferPointer(rebasing: bytes[runStart..<end]))
         }
         while index < bytes.count {
             let byte = bytes[index]
             if byte == UInt8(ascii: "\"") {
-                flushRun(index, into: &scalars)
-                index += 1
-                return String(scalars)
+                defer { index += 1 }
+                guard hasEscapes else {
+                    return String(decoding: UnsafeBufferPointer(rebasing: bytes[runStart..<index]), as: UTF8.self)
+                }
+                flushRun(index)
+                return String(decoding: unescaped, as: UTF8.self)
             }
             if byte < 0x20 { throw fail("unescaped control character in string") }
             if byte == UInt8(ascii: "\\") {
-                flushRun(index, into: &scalars)
+                hasEscapes = true
+                flushRun(index)
                 index += 1
                 guard index < bytes.count else { throw fail("unterminated escape") }
                 let escaped = bytes[index]
                 index += 1
                 switch escaped {
-                case UInt8(ascii: "\""): scalars.append("\"")
-                case UInt8(ascii: "\\"): scalars.append("\\")
-                case UInt8(ascii: "/"): scalars.append("/")
-                case UInt8(ascii: "b"): scalars.append("\u{08}")
-                case UInt8(ascii: "f"): scalars.append("\u{0C}")
-                case UInt8(ascii: "n"): scalars.append("\n")
-                case UInt8(ascii: "r"): scalars.append("\r")
-                case UInt8(ascii: "t"): scalars.append("\t")
+                case UInt8(ascii: "\""), UInt8(ascii: "\\"), UInt8(ascii: "/"): unescaped.append(escaped)
+                case UInt8(ascii: "b"): unescaped.append(0x08)
+                case UInt8(ascii: "f"): unescaped.append(0x0C)
+                case UInt8(ascii: "n"): unescaped.append(0x0A)
+                case UInt8(ascii: "r"): unescaped.append(0x0D)
+                case UInt8(ascii: "t"): unescaped.append(0x09)
                 case UInt8(ascii: "u"):
                     let high = try parseHex4()
                     if (0xD800...0xDBFF).contains(high) {
@@ -225,11 +242,11 @@ struct JSONTextParser {
                         let low = try parseHex4()
                         guard (0xDC00...0xDFFF).contains(low) else { throw fail("invalid low surrogate") }
                         let value = 0x10000 + ((high - 0xD800) << 10) + (low - 0xDC00)
-                        scalars.append(Unicode.Scalar(value)!)
+                        unescaped.append(contentsOf: UTF8.encode(Unicode.Scalar(value)!)!)
                     } else if (0xDC00...0xDFFF).contains(high) {
                         throw fail("unpaired surrogate")
                     } else {
-                        scalars.append(Unicode.Scalar(high)!)
+                        unescaped.append(contentsOf: UTF8.encode(Unicode.Scalar(high)!)!)
                     }
                 default:
                     throw fail("invalid escape sequence")

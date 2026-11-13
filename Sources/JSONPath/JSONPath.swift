@@ -94,15 +94,19 @@ public struct JSONPath: Hashable, Sendable, CustomStringConvertible {
 
     /// The nodes selected from `root`, in result order.
     public func nodes(in root: JSONValue) throws -> [Node] {
-        switch dialect {
-        case .rfc9535: try RFC9535Evaluator(root: root).evaluate(query, current: root)
-        case .jayway: try JaywayEvaluator(root: root).evaluate(query, current: root)
-        }
+        try evaluate(in: root, tracksLocations: true)
     }
 
     /// The values selected from `root`.
     public func values(in root: JSONValue) throws -> [JSONValue] {
-        try nodes(in: root).map(\.value)
+        try evaluate(in: root, tracksLocations: false).map(\.value)
+    }
+
+    func evaluate(in root: JSONValue, tracksLocations: Bool) throws -> [Node] {
+        switch dialect {
+        case .rfc9535: try RFC9535Evaluator(root: root).evaluate(query, current: root, tracksLocations: tracksLocations)
+        case .jayway: try JaywayEvaluator(root: root).evaluate(query, current: root, tracksLocations: tracksLocations)
+        }
     }
 
     /// The normalized paths of the selected nodes (function results have none).
@@ -112,12 +116,12 @@ public struct JSONPath: Hashable, Sendable, CustomStringConvertible {
 
     /// The first selected value, or `nil` when nothing matches.
     public func firstValue(in root: JSONValue) throws -> JSONValue? {
-        try nodes(in: root).first?.value
+        try values(in: root).first
     }
 
     /// `true` when at least one node is selected.
     public func matches(_ root: JSONValue) throws -> Bool {
-        try !nodes(in: root).isEmpty
+        try !values(in: root).isEmpty
     }
 
     /// Paths are equal when they have the same dialect and the same normalized form,

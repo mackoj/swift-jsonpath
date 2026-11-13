@@ -574,13 +574,14 @@ extension JSONValue {
             for (index, key) in keys.enumerated() {
                 if index > 0 { output += "," }
                 newline((indent ?? 0) + 1)
-                output += JSONValue.string(key).jsonString + (indent == nil ? ":" : ": ")
+                JSONValue.writeString(key, to: &output)
+                output += indent == nil ? ":" : ": "
                 object[key]!.write(to: &output, indent: indent.map { $0 + 1 }, sortedKeys: sortedKeys)
             }
             newline(indent ?? 0)
             output += "}"
         default:
-            output += jsonString
+            write(to: &output)
         }
     }
 }

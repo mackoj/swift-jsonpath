@@ -14,11 +14,46 @@ struct JSONParserTests {
             value.jsonString == "{\"z\":1,\"a\":[true,false,null],\"m\":{\"x\":1.5,\"y\":\"line\\n\u{e9}\u{1D11E}\"}}")
     }
 
+    @Test func escapesNextToMultibyteText() throws {
+        // Given strings mixing raw UTF-8, escapes at either end, and an escaped key
+        let text = #"{"k\u00e9y": "é\"日本\\", "only": "\n\t", "edge": "\u00e9é", "plain": "日本語"}"#
+
+        // When parsed, and when invalid UTF-8 is parsed from bytes
+        let value = try JSONValue(parsing: text)
+        let repaired = try JSONValue(parsing: [0x22, 0x61, 0xC3, 0x5C, 0x6E, 0xFF, 0x22] as [UInt8])
+
+        // Then every string is unescaped, and invalid bytes become U+FFFD
+        #expect(value.objectValue?.keys == ["k\u{e9}y", "only", "edge", "plain"])
+        #expect(value["k\u{e9}y"] == "\u{e9}\"日本\\")
+        #expect(value["only"] == "\n\t")
+        #expect(value["edge"] == "\u{e9}\u{e9}")
+        #expect(value["plain"] == "日本語")
+        #expect(repaired == "a\u{FFFD}\n\u{FFFD}")
+    }
+
+    @Test func printsEscapesNextToMultibyteText() throws {
+        // Given strings with every escape next to multibyte text, as a key and as a value
+        let value: JSONValue = ["é\"k": "\u{01}日\\\u{1F}\t👍\u{08}\u{0C}\r"]
+
+        // When printed compactly and pretty
+        let compact = value.jsonString
+        let pretty = value.jsonString(prettyPrinted: true)
+
+        // Then only the ASCII escapes change, and both forms parse back to the value
+        #expect(compact == #"{"é\"k":"\u0001日\\\u001f\t👍\b\f\r"}"#)
+        #expect(pretty == "{\n  " + #""é\"k": "\u0001日\\\u001f\t👍\b\f\r""# + "\n}")
+        #expect(try JSONValue(parsing: compact) == value)
+        #expect(try JSONValue(parsing: pretty) == value)
+    }
+
     @Test func numbers() throws {
         #expect(try JSONValue(parsing: "0") == 0)
         #expect(try JSONValue(parsing: "-12") == -12)
         #expect(try JSONValue(parsing: "1e3") == .number(1000))
         #expect(try JSONValue(parsing: "9223372036854775807") == .integer(Int.max))
+        #expect(try JSONValue(parsing: "-9223372036854775808") == .integer(Int.min))
+        #expect(try JSONValue(parsing: "-9223372036854775809") == .number(-9_223_372_036_854_775_809.0))
+        #expect(try JSONValue(parsing: "-0") == .integer(0))
         #expect(try JSONValue(parsing: "18446744073709551615") == .number(18_446_744_073_709_551_615.0))
     }
 
@@ -37,6 +72,24 @@ struct JSONParserTests {
 
 @Suite("JSONPath API")
 struct JSONPathAPITests {
+    @Test func patternsReusedInOneQueryKeepTheirOwnFlagsAndSemantics() throws {
+        // Given names that differ in case and in what surrounds the pattern
+        let document: JSONValue = [["n": "Ab"], ["n": "ab"], ["n": "xab"], ["n": 1]]
+
+        // When one query uses a pattern with and without flags, or under both match and search
+        let jayway = try JSONPath(#"$[?(@.n =~ /ab/i || @.n =~ /ab/)].n"#, dialect: .jayway).values(in: document)
+        let jaywayCaseSensitive = try JSONPath(#"$[?(@.n =~ /ab/ && !(@.n =~ /AB/i))].n"#, dialect: .jayway)
+            .values(in: document)
+        let rfc = try JSONPath("$[?match(@.n, 'ab') || search(@.n, 'ab')].n").values(in: document)
+        let rfcWhole = try JSONPath("$[?match(@.n, 'ab') && search(@.n, 'ab')].n").values(in: document)
+
+        // Then each use keeps its own flags, and match stays whole-string while search does not
+        #expect(jayway == ["Ab", "ab", "xab"])
+        #expect(jaywayCaseSensitive == [])
+        #expect(rfc == ["ab", "xab"])
+        #expect(rfcWhole == ["ab"])
+    }
+
     static let store = try! JSONValue(
         parsing: """
             {"store": {"book": [
@@ -201,6 +254,27 @@ struct MutationTests {
         #expect(value == [3, 4, 5])
     }
 
+    @Test func mutationLeavesOtherCopiesUnchanged() throws {
+        // Given a document with nested arrays and objects, and a copy of it
+        let books: [JSONValue] = (0..<100).map { ["price": .integer($0), "tags": ["a", .integer($0)]] }
+        let original: JSONValue = ["store": ["book": .array(books)]]
+        var copy = original
+
+        // When the copy is mutated at many locations, deep and shallow
+        let replaced = try copy.replace(JSONPath("$..price"), with: 0)
+        let removed = try copy.remove(JSONPath("$.store.book[?@.tags[1] >= 50]"))
+        try copy.set("x", at: JSONPointer("/store/book/0/tags/0"))
+
+        // Then the copy has every change and the original none
+        #expect(replaced == 100)
+        #expect(removed == 50)
+        #expect(copy["store"]?["book"]?.arrayValue?.count == 50)
+        #expect(copy["store"]?["book"]?[49] == ["price": 0, "tags": ["a", 49]])
+        #expect(copy["store"]?["book"]?[0]?["tags"] == ["x", 0])
+        #expect(original == ["store": ["book": .array(books)]])
+        #expect(original["store"]?["book"]?[99]?["price"] == 99)
+    }
+
     @Test func normalizedPathSubscriptAndOrdering() throws {
         let value: JSONValue = ["a": [["b": 1]]]
         let path: NormalizedPath = ["a", 0, "b"]
@@ -208,5 +282,43 @@ struct MutationTests {
         #expect(path.description == "$['a'][0]['b']")
         #expect(NormalizedPath(["a", 1]) > NormalizedPath(["a", 0]))
         #expect(NormalizedPath(["it's"]).description == #"$['it\'s']"#)
+    }
+}
+
+@Suite("Ordered dictionary")
+struct OrderedDictionaryTests {
+    @Test(arguments: [3, 20])
+    func keepsOrderAndFindsEveryKeyAcrossSizes(count: Int) {
+        // Given members inserted in a scrambled order, past the linear-search limit for the larger count
+        let names = (0..<count).map { "k\(($0 * 7) % count)" }
+        var dictionary = OrderedDictionary<String, Int>()
+        for (index, name) in names.enumerated() { dictionary[name] = index }
+
+        // When members are updated and removed, shrinking back across the limit
+        dictionary[names[0]] = -1
+        let removed = names.prefix(count - 2).dropFirst()
+        for name in removed { dictionary.removeValue(forKey: name) }
+
+        // Then order, lookups and both arrays agree
+        let kept = [names[0]] + names.suffix(2)
+        #expect(dictionary.keys == kept)
+        #expect(dictionary.values == [-1, count - 2, count - 1])
+        #expect(kept.map { dictionary[$0] } == [-1, count - 2, count - 1])
+        #expect(removed.allSatisfy { dictionary[$0] == nil && !dictionary.contains(key: $0) })
+    }
+
+    @Test(arguments: [3, 20])
+    func equalityAndHashingIgnoreOrder(count: Int) {
+        // Given the same members in two orders
+        let pairs = (0..<count).map { ("k\($0)", $0) }
+        let forward = OrderedDictionary(pairs)
+        let backward = OrderedDictionary(pairs.reversed())
+
+        // Then they are equal and hash alike, and a changed value is not equal
+        #expect(forward == backward)
+        #expect(forward.hashValue == backward.hashValue)
+        var changed = backward
+        changed["k0"] = -1
+        #expect(forward != changed)
     }
 }

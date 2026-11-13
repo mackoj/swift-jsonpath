@@ -48,7 +48,11 @@ public struct NormalizedPath: Hashable, Sendable, Comparable, CustomStringConver
     }
 
     public func appending(_ element: Element) -> NormalizedPath {
-        NormalizedPath(elements + [element])
+        var elements: [Element] = []
+        elements.reserveCapacity(self.elements.count + 1)  // one allocation, not one for `[element]` and one for `+`
+        elements.append(contentsOf: self.elements)
+        elements.append(element)
+        return NormalizedPath(elements)
     }
 
     /// The parent location, or `nil` for the root.
