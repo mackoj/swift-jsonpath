@@ -138,7 +138,8 @@ extension JSONValue {
             defer { value = .object(object) }
             if rest.isEmpty {
                 var child = object[name]
-                if case .some = child { object[name] = .null }  // keeps the member's position, drops the second reference
+                // Keeps the member's position and drops the second reference.
+                if case .some = child { object[name] = .null }
                 body(&child)
                 object[name] = child
             } else {
