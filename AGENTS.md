@@ -18,6 +18,7 @@ Read `CONSTRAINTS.md` before writing code. Do not weaken it to make a change pas
 `README.md` is the user documentation and DocC comments are the API reference (Swift Package Index builds docs for `JSONPath`, see `.spi.yml`). In the same change as any API or behaviour change:
 - Update the doc comment on every public declaration you touch.
 - Update every README section, example and table the change affects (`grep -n "<Symbol>" README.md`), including the Dialect feature table.
+- `site/index.html` is the landing page (GitHub Pages, `.github/workflows/pages.yml`). Its code tour and install snippet quote the README (`data-readme` blocks, checked by `ReadmeTests.sitePageQuotesTheReadme`); its feature claims, dialect table and numbers repeat the README: update them in the same change.
 - Keep README snippets compiling: `Tests/JSONPathTests/ReadmeTests.swift` mirrors them, so a changed snippet changes its test.
 
 ## Build and test
