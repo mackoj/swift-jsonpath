@@ -42,6 +42,11 @@ struct ReadmeTests {
         #expect(try inList.values(in: document).count == 2)
     }
 
+    @Test func anyDialect() throws {
+        #expect(try JSONPath(anyDialect: "$.store.book[?@.price < 10]").dialect == .rfc9535)
+        #expect(try JSONPath(anyDialect: "$.store.book.length()").dialect == .jayway)
+    }
+
     @Test func jsonPointer() throws {
         let document = Self.document
         let title = try JSONPointer("/store/book/0/title")

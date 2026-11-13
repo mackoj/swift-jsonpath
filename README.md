@@ -82,6 +82,16 @@ let inList  = try JSONPath("$.store.book[?(@.category in ['fiction'])]", dialect
 | Slice step `0` | selects nothing | treated as `1` |
 | Relation on a missing path | false | error (the filter fails) |
 
+When the text could be in either dialect (a search field, say), `JSONPath(anyDialect:)` picks one.
+RFC 9535 wins whenever it parses the text, even where Jayway would too and select differently;
+Jayway is tried only when RFC 9535 rejects it. `dialect` tells which one won, and text neither
+parses throws the RFC 9535 `ParseError`.
+
+```swift
+try JSONPath(anyDialect: "$.store.book[?@.price < 10]").dialect    // .rfc9535
+try JSONPath(anyDialect: "$.store.book.length()").dialect          // .jayway
+```
+
 ### JSON Pointer
 
 `JSONPointer` implements [RFC 6901](https://www.rfc-editor.org/rfc/rfc6901): it addresses one value

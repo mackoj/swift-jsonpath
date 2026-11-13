@@ -9,7 +9,7 @@ A parsed JSONPath query string together with its Dialect. Constructing one parse
 _Avoid_: expression (that is the source text, `JSONPath.expression`), selector (that is one part of a Segment)
 
 **Dialect** (`JSONPath.Dialect`):
-Which JSONPath language a Path is written in: `rfc9535` (strict, the default) or `jayway` (the Goessner-derived dialect of Jayway JsonPath, SMJJSONPath and Sextant). The README's feature table is the authoritative list of differences.
+Which JSONPath language a Path is written in: `rfc9535` (strict, the default) or `jayway` (the Goessner-derived dialect of Jayway JsonPath, SMJJSONPath and Sextant). The README's feature table is the authoritative list of differences. `JSONPath(anyDialect:)` picks one for text that doesn't say: `rfc9535` when it parses, `jayway` otherwise.
 _Avoid_: flavour, mode, version
 
 **Root / current node**:
