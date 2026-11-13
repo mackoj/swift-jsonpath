@@ -4,6 +4,9 @@
 [![](https://img.shields.io/endpoint?url=https%3A%2F%2Fswiftpackageindex.com%2Fapi%2Fpackages%2Fmackoj%2Fswift-jsonpath%2Fbadge%3Ftype%3Dswift-versions)](https://swiftpackageindex.com/mackoj/swift-jsonpath)
 [![](https://img.shields.io/endpoint?url=https%3A%2F%2Fswiftpackageindex.com%2Fapi%2Fpackages%2Fmackoj%2Fswift-jsonpath%2Fbadge%3Ftype%3Dplatforms)](https://swiftpackageindex.com/mackoj/swift-jsonpath)
 
+**[Website](https://mackoj.github.io/swift-jsonpath/)** ·
+**[API reference](https://swiftpackageindex.com/mackoj/swift-jsonpath/documentation/jsonpath)**
+
 A complete JSONPath implementation in pure Swift — no Foundation, no dependencies — supporting both
 the IETF standard and the widely deployed Jayway dialect, with JSON Pointer (RFC 6901) alongside it.
 
@@ -31,7 +34,7 @@ the IETF standard and the widely deployed Jayway dialect, with JSON Pointer (RFC
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/mackoj/swift-jsonpath.git", from: "0.0.1"),
+    .package(url: "https://github.com/mackoj/swift-jsonpath.git", from: "0.0.4"),
 ],
 targets: [
     .target(name: "MyTool", dependencies: [.product(name: "JSONPath", package: "swift-jsonpath")]),

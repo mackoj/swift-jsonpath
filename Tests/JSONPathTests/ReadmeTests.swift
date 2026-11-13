@@ -1,3 +1,4 @@
+import Foundation
 import JSONPath
 import Testing
 
@@ -12,6 +13,31 @@ struct ReadmeTests {
               {"category": "fiction", "author": "J. R. R. Tolkien", "title": "The Lord of the Rings", "price": 22.99}
             ], "bicycle": {"color": "red", "price": 19.95}}}
             """)
+
+    /// The landing page repeats README snippets in its code tour and install section (`data-readme` blocks); every
+    /// line of them must be a README line, so this suite's checks of the README cover the page too.
+    @Test func sitePageQuotesTheReadme() throws {
+        // Given the README and the landing page
+        let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let readme = try String(contentsOf: root.appendingPathComponent("README.md"), encoding: .utf8)
+        let page = try String(contentsOf: root.appendingPathComponent("site/index.html"), encoding: .utf8)
+
+        // When the page's README blocks are read back as text
+        let blocks = page.components(separatedBy: " data-readme>").dropFirst().map { block in
+            String(block.prefix { $0 != "<" })
+                .replacingOccurrences(of: "&lt;", with: "<").replacingOccurrences(of: "&gt;", with: ">")
+                .replacingOccurrences(of: "&quot;", with: "\"").replacingOccurrences(of: "&amp;", with: "&")
+        }
+        let readmeLines = Set(readme.split(separator: "\n", omittingEmptySubsequences: false).map(String.init))
+        let strayLines = blocks.flatMap { $0.split(separator: "\n").map(String.init) }.filter {
+            !readmeLines.contains($0)
+        }
+
+        // Then there are blocks, and each of their lines is in the README
+        #expect(blocks.count == 9)
+        #expect(strayLines == [])
+    }
 
     @Test func usage() throws {
         let document = Self.document
