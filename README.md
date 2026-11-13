@@ -34,7 +34,7 @@ the IETF standard and the widely deployed Jayway dialect, with JSON Pointer (RFC
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/mackoj/swift-jsonpath.git", from: "0.0.4"),
+    .package(url: "https://github.com/mackoj/swift-jsonpath.git", from: "0.1.0"),
 ],
 targets: [
     .target(name: "MyTool", dependencies: [.product(name: "JSONPath", package: "swift-jsonpath")]),
