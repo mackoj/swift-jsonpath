@@ -201,6 +201,27 @@ struct MutationTests {
         #expect(value == [3, 4, 5])
     }
 
+    @Test func mutationLeavesOtherCopiesUnchanged() throws {
+        // Given a document with nested arrays and objects, and a copy of it
+        let books: [JSONValue] = (0..<100).map { ["price": .integer($0), "tags": ["a", .integer($0)]] }
+        let original: JSONValue = ["store": ["book": .array(books)]]
+        var copy = original
+
+        // When the copy is mutated at many locations, deep and shallow
+        let replaced = try copy.replace(JSONPath("$..price"), with: 0)
+        let removed = try copy.remove(JSONPath("$.store.book[?@.tags[1] >= 50]"))
+        try copy.set("x", at: JSONPointer("/store/book/0/tags/0"))
+
+        // Then the copy has every change and the original none
+        #expect(replaced == 100)
+        #expect(removed == 50)
+        #expect(copy["store"]?["book"]?.arrayValue?.count == 50)
+        #expect(copy["store"]?["book"]?[49] == ["price": 0, "tags": ["a", 49]])
+        #expect(copy["store"]?["book"]?[0]?["tags"] == ["x", 0])
+        #expect(original == ["store": ["book": .array(books)]])
+        #expect(original["store"]?["book"]?[99]?["price"] == 99)
+    }
+
     @Test func normalizedPathSubscriptAndOrdering() throws {
         let value: JSONValue = ["a": [["b": 1]]]
         let path: NormalizedPath = ["a", 0, "b"]

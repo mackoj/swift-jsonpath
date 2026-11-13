@@ -63,15 +63,18 @@ extension JSONValue {
             return
         }
         try? Self.update(&self, parent.elements[...]) { container in
-            switch (container, last) {
-            case (.object(var object)?, .name(let name)):
+            // The container is moved out before it changes, as in `update`, so removing does not copy it.
+            switch last {
+            case .name(let name):
+                guard case .object(var object)? = container else { return }
+                container = nil
                 object.removeValue(forKey: name)
                 container = .object(object)
-            case (.array(var array)?, .index(let index)) where array.indices.contains(index):
+            case .index(let index):
+                guard case .array(var array)? = container, array.indices.contains(index) else { return }
+                container = nil
                 array.remove(at: index)
                 container = .array(array)
-            default:
-                break
             }
         }
     }
@@ -119,28 +122,37 @@ extension JSONValue {
     ) throws {
         guard let first = elements.first else {
             var optional: JSONValue? = value
+            value = .null  // so `body` gets the only reference and changes it in place
             body(&optional)
             value = optional ?? .null
             return
         }
         let rest = elements.dropFirst()
-        switch (value, first) {
-        case (.object(var object), .name(let name)):
+        // Each container is moved out of `value` before it changes, and put back after, even on a throw: while
+        // `value` still held it, the container would be shared and every change would copy it whole. The switch is
+        // on `first` alone, since a tuple of `(value, first)` would hold a second reference too.
+        switch first {
+        case .name(let name):
+            guard case .object(var object) = value else { throw cannotApply(first, to: value) }
+            value = .null
+            defer { value = .object(object) }
             if rest.isEmpty {
                 var child = object[name]
+                if case .some = child { object[name] = .null }  // keeps the member's position, drops the second reference
                 body(&child)
                 object[name] = child
             } else {
-                guard var child = object[name] else {
-                    throw MutationError(message: "No member '\(name)'")
-                }
-                try update(&child, rest, body)
-                object[name] = child
+                let found = try object.modifyValue(forKey: name) { child in try update(&child, rest, body) }
+                guard found != nil else { throw MutationError(message: "No member '\(name)'") }
             }
-            value = .object(object)
-        case (.array(var array), .index(let index)):
+        case .index(let index):
+            guard case .array(var array) = value else { throw cannotApply(first, to: value) }
+            value = .null
+            defer { value = .array(array) }
             if rest.isEmpty {
-                var child: JSONValue? = array.indices.contains(index) ? array[index] : nil
+                // `.none`, not `nil`: in this ternary Swift reads `nil` as `JSONValue.null`.
+                var child: JSONValue? = array.indices.contains(index) ? .some(array[index]) : .none
+                if case .some = child { array[index] = .null }  // drops the second reference
                 body(&child)
                 if let child {
                     if array.indices.contains(index) {
@@ -159,10 +171,11 @@ extension JSONValue {
                 }
                 try update(&array[index], rest, body)
             }
-            value = .array(array)
-        default:
-            throw MutationError(message: "Cannot apply \(first) to a \(value.typeName)")
         }
+    }
+
+    static func cannotApply(_ element: NormalizedPath.Element, to value: JSONValue) -> MutationError {
+        MutationError(message: "Cannot apply \(element) to a \(value.typeName)")
     }
 
     /// The JSON type name: `object`, `array`, `string`, `number`, `boolean` or `null`.

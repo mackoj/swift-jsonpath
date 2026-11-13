@@ -48,6 +48,13 @@ public struct OrderedDictionary<Key: Hashable, Value> {
 
     public func contains(key: Key) -> Bool { storage[key] != nil }
 
+    /// Calls `body` with the value for `key` in place, so a uniquely referenced value is not copied, or returns `nil`
+    /// when there is no such key.
+    mutating func modifyValue<R>(forKey key: Key, _ body: (inout Value) throws -> R) rethrows -> R? {
+        guard let index = storage.index(forKey: key) else { return nil }
+        return try body(&storage.values[index])
+    }
+
     /// The stored key equal to `key` and its value. (Swift `String` equality is canonical-equivalence
     /// based; callers that need code-point equality compare the returned key.)
     func entry(forKey key: Key) -> (key: Key, value: Value)? {
