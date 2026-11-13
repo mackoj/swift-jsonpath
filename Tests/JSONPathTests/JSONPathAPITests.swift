@@ -72,6 +72,24 @@ struct JSONParserTests {
 
 @Suite("JSONPath API")
 struct JSONPathAPITests {
+    @Test func patternsReusedInOneQueryKeepTheirOwnFlagsAndSemantics() throws {
+        // Given names that differ in case and in what surrounds the pattern
+        let document: JSONValue = [["n": "Ab"], ["n": "ab"], ["n": "xab"], ["n": 1]]
+
+        // When one query uses a pattern with and without flags, or under both match and search
+        let jayway = try JSONPath(#"$[?(@.n =~ /ab/i || @.n =~ /ab/)].n"#, dialect: .jayway).values(in: document)
+        let jaywayCaseSensitive = try JSONPath(#"$[?(@.n =~ /ab/ && !(@.n =~ /AB/i))].n"#, dialect: .jayway)
+            .values(in: document)
+        let rfc = try JSONPath("$[?match(@.n, 'ab') || search(@.n, 'ab')].n").values(in: document)
+        let rfcWhole = try JSONPath("$[?match(@.n, 'ab') && search(@.n, 'ab')].n").values(in: document)
+
+        // Then each use keeps its own flags, and match stays whole-string while search does not
+        #expect(jayway == ["Ab", "ab", "xab"])
+        #expect(jaywayCaseSensitive == [])
+        #expect(rfc == ["ab", "xab"])
+        #expect(rfcWhole == ["ab"])
+    }
+
     static let store = try! JSONValue(
         parsing: """
             {"store": {"book": [

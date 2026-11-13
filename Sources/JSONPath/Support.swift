@@ -30,3 +30,18 @@ extension String {
         return result
     }
 }
+
+/// The regular expressions compiled while one query runs. A filter calls `match`, `search` or `=~` once per node,
+/// nearly always with the same pattern, and compiling a pattern costs far more than matching it. One cache lives as
+/// long as one evaluation, so nothing is shared between queries or threads.
+final class RegexCache {
+    private var compiled: [String: Regex<AnyRegexOutput>?] = [:]
+
+    /// The regex for `key`, compiled by `compile` the first time; a pattern that does not compile is remembered too.
+    func regex(_ key: String, compile: () -> Regex<AnyRegexOutput>?) -> Regex<AnyRegexOutput>? {
+        if let regex = compiled[key] { return regex }
+        let regex = compile()
+        compiled[key] = .some(regex)
+        return regex
+    }
+}

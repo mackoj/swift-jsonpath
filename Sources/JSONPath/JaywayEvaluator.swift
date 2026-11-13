@@ -8,6 +8,7 @@
 /// - Path functions (`.length()`, `.avg()`, ...) compute values; failures make the query fail.
 struct JaywayEvaluator {
     let root: JSONValue
+    var regexes = RegexCache()
 
     typealias Node = JSONPath.Node
 
@@ -232,7 +233,9 @@ struct JaywayEvaluator {
             let exists = self.exists(query, current: current)
             return (exists != negated) ? .true : .false
         case .function(let call):
-            guard let value = try? RFC9535Functions.evaluateLogical(call, current: current, root: root, jayway: self)
+            guard
+                let value = try? RFC9535Functions.evaluateLogical(
+                    call, current: current, root: root, jayway: self, regexes: regexes)
             else { return .error }
             return value ? .true : .false
         case .comparison(let lhs, let op, let rhs):
@@ -246,7 +249,7 @@ struct JaywayEvaluator {
             guard let left = valueNode(lhs, current: current), let right = valueNode(rhs, current: current) else {
                 return .error
             }
-            return JaywayValue.evaluate(left, op, right)
+            return JaywayValue.evaluate(left, op, right, regexes: regexes)
         }
     }
 
@@ -268,7 +271,9 @@ struct JaywayEvaluator {
             return JaywayValue(value)
         case .function(let call):
             guard
-                let value = (try? RFC9535Functions.evaluateValue(call, current: current, root: root, jayway: self))
+                let value =
+                    (try? RFC9535Functions.evaluateValue(
+                        call, current: current, root: root, jayway: self, regexes: regexes))
                     ?? nil
             else { return nil }
             return JaywayValue(value)
@@ -358,7 +363,8 @@ enum JaywayValue {
     }
 
     static func evaluate(
-        _ left: JaywayValue, _ op: JSONPath.ComparisonOperator, _ right: JaywayValue
+        _ left: JaywayValue, _ op: JSONPath.ComparisonOperator, _ right: JaywayValue,
+        regexes: RegexCache = RegexCache()
     )
         -> JaywayEvaluator.Truth
     {
@@ -383,7 +389,10 @@ enum JaywayValue {
                 (patternValue, subject) = (right, left)
             }
             guard case .pattern(let pattern, let flags) = patternValue else { return .error }
-            guard let regex = JaywayRegex.compile(pattern, flags: flags) else { return .error }
+            guard
+                let regex = regexes.regex(
+                    "jayway:" + flags + "/" + pattern, compile: { JaywayRegex.compile(pattern, flags: flags) })
+            else { return .error }
             guard let text = subject.regexSubject else { return .false }
             return truth((try? regex.firstMatch(in: text)) != nil)
         case .in:
