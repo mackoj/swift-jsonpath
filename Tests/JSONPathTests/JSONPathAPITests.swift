@@ -31,6 +31,21 @@ struct JSONParserTests {
         #expect(repaired == "a\u{FFFD}\n\u{FFFD}")
     }
 
+    @Test func printsEscapesNextToMultibyteText() throws {
+        // Given strings with every escape next to multibyte text, as a key and as a value
+        let value: JSONValue = ["é\"k": "\u{01}日\\\u{1F}\t👍\u{08}\u{0C}\r"]
+
+        // When printed compactly and pretty
+        let compact = value.jsonString
+        let pretty = value.jsonString(prettyPrinted: true)
+
+        // Then only the ASCII escapes change, and both forms parse back to the value
+        #expect(compact == #"{"é\"k":"\u0001日\\\u001f\t👍\b\f\r"}"#)
+        #expect(pretty == "{\n  " + #""é\"k": "\u0001日\\\u001f\t👍\b\f\r""# + "\n}")
+        #expect(try JSONValue(parsing: compact) == value)
+        #expect(try JSONValue(parsing: pretty) == value)
+    }
+
     @Test func numbers() throws {
         #expect(try JSONValue(parsing: "0") == 0)
         #expect(try JSONValue(parsing: "-12") == -12)
