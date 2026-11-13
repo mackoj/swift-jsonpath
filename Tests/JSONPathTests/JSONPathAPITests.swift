@@ -266,3 +266,41 @@ struct MutationTests {
         #expect(NormalizedPath(["it's"]).description == #"$['it\'s']"#)
     }
 }
+
+@Suite("Ordered dictionary")
+struct OrderedDictionaryTests {
+    @Test(arguments: [3, 20])
+    func keepsOrderAndFindsEveryKeyAcrossSizes(count: Int) {
+        // Given members inserted in a scrambled order, past the linear-search limit for the larger count
+        let names = (0..<count).map { "k\(($0 * 7) % count)" }
+        var dictionary = OrderedDictionary<String, Int>()
+        for (index, name) in names.enumerated() { dictionary[name] = index }
+
+        // When members are updated and removed, shrinking back across the limit
+        dictionary[names[0]] = -1
+        let removed = names.prefix(count - 2).dropFirst()
+        for name in removed { dictionary.removeValue(forKey: name) }
+
+        // Then order, lookups and both arrays agree
+        let kept = [names[0]] + names.suffix(2)
+        #expect(dictionary.keys == kept)
+        #expect(dictionary.values == [-1, count - 2, count - 1])
+        #expect(kept.map { dictionary[$0] } == [-1, count - 2, count - 1])
+        #expect(removed.allSatisfy { dictionary[$0] == nil && !dictionary.contains(key: $0) })
+    }
+
+    @Test(arguments: [3, 20])
+    func equalityAndHashingIgnoreOrder(count: Int) {
+        // Given the same members in two orders
+        let pairs = (0..<count).map { ("k\($0)", $0) }
+        let forward = OrderedDictionary(pairs)
+        let backward = OrderedDictionary(pairs.reversed())
+
+        // Then they are equal and hash alike, and a changed value is not equal
+        #expect(forward == backward)
+        #expect(forward.hashValue == backward.hashValue)
+        var changed = backward
+        changed["k0"] = -1
+        #expect(forward != changed)
+    }
+}
