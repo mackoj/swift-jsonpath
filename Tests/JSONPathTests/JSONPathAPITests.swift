@@ -14,11 +14,31 @@ struct JSONParserTests {
             value.jsonString == "{\"z\":1,\"a\":[true,false,null],\"m\":{\"x\":1.5,\"y\":\"line\\n\u{e9}\u{1D11E}\"}}")
     }
 
+    @Test func escapesNextToMultibyteText() throws {
+        // Given strings mixing raw UTF-8, escapes at either end, and an escaped key
+        let text = #"{"k\u00e9y": "é\"日本\\", "only": "\n\t", "edge": "\u00e9é", "plain": "日本語"}"#
+
+        // When parsed, and when invalid UTF-8 is parsed from bytes
+        let value = try JSONValue(parsing: text)
+        let repaired = try JSONValue(parsing: [0x22, 0x61, 0xC3, 0x5C, 0x6E, 0xFF, 0x22] as [UInt8])
+
+        // Then every string is unescaped, and invalid bytes become U+FFFD
+        #expect(value.objectValue?.keys == ["k\u{e9}y", "only", "edge", "plain"])
+        #expect(value["k\u{e9}y"] == "\u{e9}\"日本\\")
+        #expect(value["only"] == "\n\t")
+        #expect(value["edge"] == "\u{e9}\u{e9}")
+        #expect(value["plain"] == "日本語")
+        #expect(repaired == "a\u{FFFD}\n\u{FFFD}")
+    }
+
     @Test func numbers() throws {
         #expect(try JSONValue(parsing: "0") == 0)
         #expect(try JSONValue(parsing: "-12") == -12)
         #expect(try JSONValue(parsing: "1e3") == .number(1000))
         #expect(try JSONValue(parsing: "9223372036854775807") == .integer(Int.max))
+        #expect(try JSONValue(parsing: "-9223372036854775808") == .integer(Int.min))
+        #expect(try JSONValue(parsing: "-9223372036854775809") == .number(-9_223_372_036_854_775_809.0))
+        #expect(try JSONValue(parsing: "-0") == .integer(0))
         #expect(try JSONValue(parsing: "18446744073709551615") == .number(18_446_744_073_709_551_615.0))
     }
 
