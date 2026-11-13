@@ -18,7 +18,8 @@ Run these before handing back a code change; each must pass.
 | Diff integrity | 0 whitespace errors | `git diff --check main` |
 | Compilation | 0 errors, debug and release | `swift build --build-tests` and `swift build -c release` |
 | Behaviour | 0 failing tests, including all 715 compliance cases, the Sextant suite and README examples | `swift test` |
-| Formatting | 0 changes from formatting, 0 lint findings, with swift-format 6.3 | `swift-format lint --strict --parallel --recursive Sources Tests Package.swift` |
+| Formatting | 0 changes from formatting, 0 lint findings, with swift-format 6.3 | `swift-format lint --strict --parallel --recursive Sources Tests Package.swift Architecture` |
+| Architecture rules | 0 findings from the rules in `docs/architecture-rules.md`, no baseline, and the rules document up to date | `swift test --package-path Architecture` (macOS) |
 | Public API | 0 breaking changes against the base branch, unless intended and called out in the pull request | `swift package diagnose-api-breaking-changes main` |
 | Documentation | 0 DocC warnings for the `.spi.yml` targets | Soundness workflow's documentation check (CI) |
 | Workflows and YAML | 0 findings | `actionlint`, `zizmor .github/workflows` and `yamllint --strict .` |

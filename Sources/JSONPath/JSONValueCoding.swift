@@ -7,7 +7,9 @@
 /// struct Pet: Decodable { let name: String }
 /// let pets = try JSONValueDecoder().decode([Pet].self, from: JSONPath("$.pets[*]").values(in: document))
 /// ```
-public struct JSONValueDecoder {
+///
+/// `Sendable`, so one decoder can be shared across tasks. Not `Hashable`: `userInfo` holds `any Sendable` values.
+public struct JSONValueDecoder: Sendable {
     public var userInfo: [CodingUserInfoKey: any Sendable]
 
     public init(userInfo: [CodingUserInfoKey: any Sendable] = [:]) {
@@ -25,7 +27,9 @@ public struct JSONValueDecoder {
 }
 
 /// Encodes `Encodable` values into a ``JSONValue`` tree, keeping the order in which keys are encoded.
-public struct JSONValueEncoder {
+///
+/// `Sendable`, so one encoder can be shared across tasks. Not `Hashable`: `userInfo` holds `any Sendable` values.
+public struct JSONValueEncoder: Sendable {
     public var userInfo: [CodingUserInfoKey: any Sendable]
 
     public init(userInfo: [CodingUserInfoKey: any Sendable] = [:]) {
