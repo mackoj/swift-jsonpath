@@ -4,8 +4,10 @@ struct RFC9535Evaluator {
 
     typealias Node = JSONPath.Node
 
-    func evaluate(_ query: JSONPath.Query, current: JSONValue) throws -> [Node] {
-        var nodes = [Node(location: .root, value: query.root == .root ? root : current)]
+    /// The selected nodes. Without `tracksLocations` every location is `nil`: building them costs an allocation per
+    /// visited node, and filters, functions and ``JSONPath/values(in:)`` read values only.
+    func evaluate(_ query: JSONPath.Query, current: JSONValue, tracksLocations: Bool = false) throws -> [Node] {
+        var nodes = [Node(location: tracksLocations ? .root : nil, value: query.root == .root ? root : current)]
         for segment in query.segments {
             var next: [Node] = []
             switch segment {

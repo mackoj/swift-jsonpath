@@ -11,10 +11,14 @@ struct JaywayEvaluator {
 
     typealias Node = JSONPath.Node
 
-    func evaluate(_ query: JSONPath.Query, current: JSONValue) throws -> [Node] {
+    /// The selected nodes. Without `tracksLocations` every location is `nil`: building them costs an allocation per
+    /// visited node, and filters, functions and ``JSONPath/values(in:)`` read values only.
+    func evaluate(_ query: JSONPath.Query, current: JSONValue, tracksLocations: Bool = false) throws -> [Node] {
         let start = query.root == .root ? root : current
         var results: [Node] = []
-        try run(query.segments[...], value: start, location: .root, upstreamDefinite: true) { results.append($0) }
+        try run(query.segments[...], value: start, location: tracksLocations ? .root : nil, upstreamDefinite: true) {
+            results.append($0)
+        }
         return results
     }
 
