@@ -103,19 +103,6 @@ import Testing
         #expect(found.map(\.name) == ["JSONValueEncoder"])
     }
 
-    @Test func uncommentedUncheckedSendableIsFound() {
-        let found = Detect.uncommentedUncheckedSendable(
-            in: scope(
-                """
-                final class Cache: @unchecked Sendable {}
-
-                // Every access to `storage` holds `lock`.
-                final class Guarded: @unchecked Sendable {}
-                extension Box: @unchecked Sendable {}  // Box is immutable after init.
-                """))
-        #expect(found.map(\.location.line) == [1])
-    }
-
     @Test func todoStubsAreFound() {
         let found = Detect.todoStubs(
             in: scope(
@@ -137,32 +124,5 @@ import Testing
                 fatalError()
                 """))
         #expect(found.isEmpty)
-    }
-
-    @Test func xcTestImportsAreFound() {
-        let found = Detect.xcTestImports(in: scope("import XCTest\nimport Testing", at: "Tests/T/A.swift"))
-        #expect(found.map(\.location.line) == [1])
-    }
-
-    @Test func unexplainedKnownIssuesAreFound() {
-        let found = Detect.unexplainedKnownIssues(
-            in: scope(
-                """
-                withKnownIssue { try evaluate() }
-                withKnownIssue(isIntermittent: true) { try evaluate() }
-                withKnownIssue("Sextant returns the parent (#12)") { try evaluate() }
-                """, at: "Tests/T/A.swift"))
-        #expect(found.map(\.location.line) == [1, 2])
-    }
-
-    @Test func disabledTestsAreFound() {
-        let found = Detect.disabledTests(
-            in: scope(
-                """
-                @Test(.disabled("flaky")) func a() {}
-                @Suite(.disabled()) struct B {}
-                @Test func c() { rule.disabled() }
-                """, at: "Tests/T/A.swift"))
-        #expect(found.map(\.location.line) == [1, 2])
     }
 }

@@ -26,8 +26,7 @@ enum Detect {
         let random = scope.calls(named: randomMethods).filter {
             $0.node.calledExpression.is(MemberAccessExprSyntax.self)
         }
-        return scope.references(to: impureTypes)
-            + (console + random).map { Match(node: Syntax($0.node), file: $0.file) }
+        return scope.references(to: impureTypes) + (console + random).map(\.erased)
     }
 
     /// Public or open classes and public actors.
@@ -49,15 +48,6 @@ enum Detect {
         }
     }
 
-    /// `@unchecked Sendable` conformances with no comment on the declaration that makes them.
-    static func uncommentedUncheckedSendable(in scope: Scope) -> [Match<AttributeSyntax>] {
-        scope.containing("@unchecked").nodes(of: AttributeSyntax.self) { match in
-            guard match.node.attributeName.trimmedDescription == "unchecked" else { return false }
-            let declaration = sequence(first: Syntax(match.node), next: \.parent).first { $0.is(DeclSyntax.self) }
-            return declaration?.attachedComments.isEmpty ?? true
-        }
-    }
-
     /// `fatalError("TODO …")`, `preconditionFailure("unimplemented")` and the like: a stub that compiles.
     static func todoStubs(in scope: Scope) -> [Match<FunctionCallExprSyntax>] {
         scope.calls(named: "fatalError", "preconditionFailure").filter { call in
@@ -68,26 +58,6 @@ enum Detect {
             return ["todo", "fixme", "unimplemented", "not implemented", "not yet implemented"].contains {
                 text.hasPrefix($0)
             }
-        }
-    }
-
-    /// `import XCTest`.
-    static func xcTestImports(in scope: Scope) -> [Match<ImportDeclSyntax>] {
-        scope.imports(of: "XCTest")
-    }
-
-    /// `withKnownIssue { … }` whose first argument is not a string literal: the reason.
-    static func unexplainedKnownIssues(in scope: Scope) -> [Match<FunctionCallExprSyntax>] {
-        scope.calls(named: "withKnownIssue").filter { call in
-            guard let first = call.node.arguments.first, first.label == nil else { return true }
-            return !first.expression.is(StringLiteralExprSyntax.self)
-        }
-    }
-
-    /// The `.disabled(…)` trait, wherever a test or suite takes it.
-    static func disabledTests(in scope: Scope) -> [Match<FunctionCallExprSyntax>] {
-        scope.calls(named: "disabled").filter { call in
-            call.node.receiver == nil && call.node.calledExpression.is(MemberAccessExprSyntax.self)
         }
     }
 }
